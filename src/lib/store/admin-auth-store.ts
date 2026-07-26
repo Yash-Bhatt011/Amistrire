@@ -1,78 +1,47 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "./auth-store";
+
+/**
+ * Admin/staff auth. There's only one login system now (Supabase Auth) —
+ * this store just checks the logged-in profile's `role`. Signing in here
+ * uses the exact same Supabase credentials as a normal customer login; the
+ * only difference is we reject (and sign back out) if the account isn't
+ * marked role = 'staff' in the profiles table.
+ */
 
 export type StaffRole = "owner" | "manager" | "staff";
 
-type StaffAccount = {
-  name: string;
-  email: string;
-  password: string; // demo only — never do this with a real backend
-  role: StaffRole;
-};
-
 type AdminAuthState = {
-  staff: StaffAccount[];
-  currentEmail: string | null;
-  logIn: (email: string, password: string) => { ok: boolean; error?: string };
-  logOut: () => void;
-  currentStaff: () => StaffAccount | null;
-  inviteStaff: (name: string, email: string, password: string, role: StaffRole) => { ok: boolean; error?: string };
-  removeStaff: (email: string) => void;
+  logIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  logOut: () => Promise<void>;
+  currentStaff: () => { name: string; email: string; role: StaffRole } | null;
 };
 
-const DEFAULT_OWNER: StaffAccount = {
-  name: "Owner",
-  email: "owner@amistrie.com",
-  password: "amistrie2026",
-  role: "owner",
-};
+export const useAdminAuthStore = create<AdminAuthState>()((_set, _get) => ({
+  logIn: async (email, password) => {
+    const result = await useAuthStore.getState().logIn(email, password);
+    if (!result.ok) return result;
 
-export const useAdminAuthStore = create<AdminAuthState>()(
-  persist(
-    (set, get) => ({
-      staff: [DEFAULT_OWNER],
-      currentEmail: null,
-
-      logIn: (email, password) => {
-        const staff = get().staff ?? [];
-        const account = staff.find((a) => a.email.toLowerCase() === email.toLowerCase());
-        if (!account) return { ok: false, error: "No staff account found with this email." };
-        if (account.password !== password) return { ok: false, error: "Incorrect password." };
-        set({ currentEmail: email });
-        return { ok: true };
-      },
-
-      logOut: () => set({ currentEmail: null }),
-
-      currentStaff: () => {
-        const { staff, currentEmail } = get();
-        if (!currentEmail) return null;
-        return (staff ?? []).find((a) => a.email.toLowerCase() === currentEmail.toLowerCase()) ?? null;
-      },
-
-      inviteStaff: (name, email, password, role) => {
-        const staff = get().staff ?? [];
-        if (staff.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
-          return { ok: false, error: "A staff account with this email already exists." };
-        }
-        set({ staff: [...staff, { name, email, password, role }] });
-        return { ok: true };
-      },
-
-      removeStaff: (email) => {
-        set({ staff: (get().staff ?? []).filter((a) => a.email.toLowerCase() !== email.toLowerCase()) });
-      },
-    }),
-    {
-      name: "amistrie-admin-auth",
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<AdminAuthState>;
-        return {
-          ...current,
-          staff: Array.isArray(p.staff) && p.staff.length > 0 ? p.staff : current.staff,
-          currentEmail: typeof p.currentEmail === "string" ? p.currentEmail : current.currentEmail,
-        };
-      },
+    const user = useAuthStore.getState().currentUser();
+    if (!user || user.role !== "staff") {
+      // Valid account, but not a staff/admin account — sign back out so a
+      // customer session isn't left half-authenticated on the admin flow.
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      useAuthStore.setState({ user: null });
+      return { ok: false, error: "This account doesn't have admin access." };
     }
-  )
-);
+    return { ok: true };
+  },
+
+  logOut: async () => {
+    await useAuthStore.getState().logOut();
+  },
+
+  currentStaff: () => {
+    const user = useAuthStore.getState().currentUser();
+    if (!user || user.role !== "staff") return null;
+    return { name: user.name, email: user.email, role: (user.staffRole ?? "staff") as StaffRole };
+  },
+}));

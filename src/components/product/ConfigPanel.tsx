@@ -6,6 +6,8 @@ import { Minus, Plus, Truck, Clock, PackageCheck, Bookmark } from "lucide-react"
 import type { Product } from "@/lib/types";
 import { formatINR, cn } from "@/lib/utils";
 import { OptionSelector } from "./OptionSelector";
+import { PersonalizationPreview3D } from "./PersonalizationPreview3D";
+import { ConfettiBurst } from "@/components/ui/ConfettiBurst";
 import { Magnetic } from "@/components/ui/Magnetic";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -50,6 +52,11 @@ export function ConfigPanel({ product }: { product: Product }) {
   const deliveryDays = product.inventory === "made-to-order" ? "7-10 days" : "3-5 days";
   const queuePosition = 4;
 
+  const personalizationOption = product.options.find((o) => o.type === "personalization" || o.type === "engraving");
+  const personalizationText = personalizationOption ? selected[personalizationOption.type] ?? "" : "";
+  const colorOption = product.options.find((o) => o.type === "color");
+  const previewColor = colorOption?.choices?.find((c) => c.value === selected.color)?.swatch ?? "#2997ff";
+
   function handleAddToCart() {
     addLine(product.slug, unitPrice, selected, quantity);
     setJustAdded(true);
@@ -80,6 +87,13 @@ export function ConfigPanel({ product }: { product: Product }) {
         </motion.span>
         <span className={cn("text-xs font-medium", inv.className)}>{inv.text}</span>
       </div>
+
+      {personalizationOption && (
+        <div className="mt-6">
+          <p className="mb-2 text-xs uppercase tracking-wider text-studio-ink/40">Live Preview</p>
+          <PersonalizationPreview3D text={personalizationText} color={previewColor} />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-5">
         {product.options.map((opt) => (
@@ -125,7 +139,8 @@ export function ConfigPanel({ product }: { product: Product }) {
         </div>
       </div>
 
-      <Magnetic strength={0.2} className="mt-6 block w-full">
+      <div className="relative mt-6">
+        <Magnetic strength={0.2} className="block w-full">
         <motion.button
           onClick={handleAddToCart}
           disabled={missingRequired}
@@ -143,7 +158,9 @@ export function ConfigPanel({ product }: { product: Product }) {
         >
           {justAdded ? "Added to Cart ✓" : missingRequired ? "Select required options" : "Add to Cart"}
         </motion.button>
-      </Magnetic>
+        </Magnetic>
+        <ConfettiBurst active={justAdded} />
+      </div>
 
       {currentUser() && (
         <button

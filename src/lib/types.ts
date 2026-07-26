@@ -133,4 +133,9 @@ export type Order = {
   tax: number;
   total: number;
   couponCode?: string;
+  billingName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingPincode?: string;
+  billingPhone?: string;
 };

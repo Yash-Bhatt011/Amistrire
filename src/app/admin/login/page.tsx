@@ -11,9 +11,9 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = logIn(email, password);
+    const result = await logIn(email, password);
     if (!result.ok) {
       setError(result.error ?? "Something went wrong.");
       return;
@@ -57,11 +57,11 @@ export default function AdminLoginPage() {
         </form>
 
         <div className="mt-6 rounded-lg border border-studio-line bg-studio-concrete p-4 text-xs text-studio-ink/50">
-          Default owner login (change this once real auth is wired up):
-          <br />
-          <span className="font-mono text-studio-ink">owner@amistrie.com</span>
-          <br />
-          <span className="font-mono text-studio-ink">amistrie2026</span>
+          Sign in with any account whose profile has been promoted to staff
+          (see <span className="font-mono text-studio-ink">supabase/schema.sql</span>).
+          You can also sign in from the regular{" "}
+          <a href="/account/login" className="text-accent-cyan hover:underline">login page</a> —
+          it recognizes staff accounts automatically.
         </div>
       </div>
     </div>

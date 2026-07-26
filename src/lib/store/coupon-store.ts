@@ -1,30 +1,59 @@
+"use client";
+
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type { Coupon } from "../types";
-import { COUPONS as SEED_COUPONS } from "../promo-data";
+import { createClient } from "../supabase/client";
+import { rowToCoupon, couponToRow, couponPatchToRow } from "../supabase/mappers";
 
 type CouponStoreState = {
   coupons: Coupon[];
-  addCoupon: (c: Coupon) => void;
-  updateCoupon: (code: string, patch: Partial<Coupon>) => void;
-  deleteCoupon: (code: string) => void;
+  hydrated: boolean;
+  hydrate: () => Promise<void>;
+  addCoupon: (c: Coupon) => Promise<void>;
+  updateCoupon: (code: string, patch: Partial<Coupon>) => Promise<void>;
+  deleteCoupon: (code: string) => Promise<void>;
 };
 
-export const useCouponStore = create<CouponStoreState>()(
-  persist(
-    (set, get) => ({
-      coupons: SEED_COUPONS,
-      addCoupon: (c) => set({ coupons: [...(get().coupons ?? []), c] }),
-      updateCoupon: (code, patch) =>
-        set({ coupons: (get().coupons ?? []).map((c) => (c.code === code ? { ...c, ...patch } : c)) }),
-      deleteCoupon: (code) => set({ coupons: (get().coupons ?? []).filter((c) => c.code !== code) }),
-    }),
-    {
-      name: "amistrie-coupons",
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<CouponStoreState>;
-        return { ...current, coupons: Array.isArray(p.coupons) ? p.coupons : current.coupons };
-      },
+export const useCouponStore = create<CouponStoreState>()((set, get) => ({
+  coupons: [],
+  hydrated: false,
+
+  hydrate: async () => {
+    if (get().hydrated) return;
+    const supabase = createClient();
+    const { data } = await supabase.from("coupons").select("*");
+    set({ coupons: (data ?? []).map(rowToCoupon), hydrated: true });
+  },
+
+  addCoupon: async (c) => {
+    set({ coupons: [...get().coupons, c] }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("coupons").insert(couponToRow(c));
+    if (error) {
+      console.error("addCoupon failed:", error.message);
+      set({ coupons: get().coupons.filter((x) => x.code !== c.code) }); // revert
     }
-  )
-);
+  },
+
+  updateCoupon: async (code, patch) => {
+    const previous = get().coupons;
+    set({ coupons: previous.map((c) => (c.code === code ? { ...c, ...patch } : c)) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("coupons").update(couponPatchToRow(patch)).eq("code", code);
+    if (error) {
+      console.error("updateCoupon failed:", error.message);
+      set({ coupons: previous }); // revert
+    }
+  },
+
+  deleteCoupon: async (code) => {
+    const previous = get().coupons;
+    set({ coupons: previous.filter((c) => c.code !== code) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("coupons").delete().eq("code", code);
+    if (error) {
+      console.error("deleteCoupon failed:", error.message);
+      set({ coupons: previous }); // revert
+    }
+  },
+}));

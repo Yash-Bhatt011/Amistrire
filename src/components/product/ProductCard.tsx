@@ -44,12 +44,22 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
               : "bg-gradient-to-br from-accent-cyan/15 via-studio-panel to-studio-panel"
           )}
         >
-          <div
-            className={cn(
-              "h-20 w-20 rounded-2xl border transition-transform duration-500 ease-cinematic group-hover:scale-110 group-hover:rotate-6",
-              product.accent === "purple" ? "border-accent-purple/40 bg-accent-purple/10" : "border-accent-cyan/40 bg-accent-cyan/10"
-            )}
-          />
+          {product.media?.images?.[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.media.images[0]}
+              alt={product.seo?.imageAlt ?? product.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 ease-cinematic group-hover:scale-110"
+            />
+          ) : (
+            <div
+              className={cn(
+                "h-20 w-20 rounded-2xl border transition-transform duration-500 ease-cinematic group-hover:scale-110 group-hover:rotate-6",
+                product.accent === "purple" ? "border-accent-purple/40 bg-accent-purple/10" : "border-accent-cyan/40 bg-accent-cyan/10"
+              )}
+            />
+          )}
           {product.badges?.[0] && (
             <div className="absolute left-3 top-3">
               <Badge kind={product.badges[0]} />

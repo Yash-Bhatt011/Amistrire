@@ -16,9 +16,9 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = signUp(name, email, password);
+    const result = await signUp(name, email, password);
     if (!result.ok) {
       setError(result.error ?? "Something went wrong.");
       return;

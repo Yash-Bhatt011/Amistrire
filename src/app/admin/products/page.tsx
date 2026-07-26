@@ -14,7 +14,7 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-studio-ink">Products</h1>
           <p className="mt-1 text-sm text-studio-ink/50">{products.length} total</p>
@@ -27,8 +27,8 @@ export default function AdminProductsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-studio-line bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-studio-line bg-white">
+        <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-studio-line text-xs uppercase tracking-wider text-studio-ink/40">
               <th className="px-4 py-3">Name</th>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
@@ -10,7 +10,9 @@ import { useAccountDataStore } from "@/lib/store/account-data-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useRecentlyViewedStore } from "@/lib/store/recently-viewed-store";
 import { useAllProductsIncludingArchived, findProduct } from "@/lib/catalog-hooks";
+import { createClient } from "@/lib/supabase/client";
 import { formatINR, cn } from "@/lib/utils";
+import type { Order, CartLine } from "@/lib/types";
 
 const TABS = [
   { key: "profile", label: "Profile", icon: User },
@@ -36,8 +38,53 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
   const addresses = useAccountDataStore(useShallow((s) => (user ? s.addressesByEmail[user.email] ?? [] : [])));
   const addAddress = useAccountDataStore((s) => s.addAddress);
   const removeAddress = useAccountDataStore((s) => s.removeAddress);
-  const orders = useAccountDataStore(useShallow((s) => (user ? s.ordersByEmail[user.email] ?? [] : [])));
   const savedDesigns = useAccountDataStore(useShallow((s) => (user ? s.savedDesignsByEmail[user.email] ?? [] : [])));
+
+  // Real order history, straight from Supabase (RLS ensures this only ever
+  // returns the logged-in user's own orders).
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setOrders([]);
+      setOrdersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setOrdersLoading(true);
+    const supabase = createClient();
+    supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("date", { ascending: false })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const mapped: Order[] = (data ?? []).map((row) => ({
+          id: row.id,
+          date: row.date,
+          status: row.status,
+          items: (row.items ?? []) as CartLine[],
+          subtotal: row.subtotal,
+          discount: row.discount,
+          shipping: row.shipping,
+          tax: row.tax,
+          total: row.total,
+          couponCode: row.coupon_code ?? undefined,
+          billingName: row.billing_name ?? undefined,
+          billingAddress: row.billing_address ?? undefined,
+          billingCity: row.billing_city ?? undefined,
+          billingPincode: row.billing_pincode ?? undefined,
+          billingPhone: row.billing_phone ?? undefined,
+        }));
+        setOrders(mapped);
+        setOrdersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const wishlistSlugs = useWishlistStore((s) => s.slugs);
   const recentSlugs = useRecentlyViewedStore((s) => s.slugs);
@@ -139,7 +186,8 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
 
           {tab === "orders" && (
             <div className="flex flex-col gap-4">
-              {orders.length === 0 && <p className="text-sm text-studio-ink/40">No orders yet.</p>}
+              {ordersLoading && <p className="text-sm text-studio-ink/40">Loading your orders...</p>}
+              {!ordersLoading && orders.length === 0 && <p className="text-sm text-studio-ink/40">No orders yet.</p>}
               {orders.map((order) => (
                 <div key={order.id} className="rounded-2xl border border-studio-line bg-studio-panel p-5">
                   <div className="flex items-center justify-between">
@@ -151,9 +199,9 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
                   <p className="mt-1 text-xs text-studio-ink/40">{new Date(order.date).toLocaleDateString()} · {order.items.length} item(s)</p>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="font-mono text-sm text-studio-ink">{formatINR(order.total)}</span>
-                    <button className="flex items-center gap-1.5 text-xs text-studio-ink/50 hover:text-studio-ink">
+                    <Link href={`/invoice/${order.id}`} className="flex items-center gap-1.5 text-xs text-studio-ink/50 hover:text-studio-ink">
                       <Download className="h-3.5 w-3.5" /> Invoice
-                    </button>
+                    </Link>
                   </div>
                 </div>
               ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/ui/Navbar";
@@ -10,7 +10,7 @@ import { CouponInput } from "@/components/ui/CouponInput";
 import { useCartStore, cartSubtotal } from "@/lib/store/cart-store";
 import { useCouponSession } from "@/lib/use-coupon-session";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { useAccountDataStore } from "@/lib/store/account-data-store";
+import { createClient } from "@/lib/supabase/client";
 import { formatINR } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 
@@ -21,14 +21,15 @@ export default function CheckoutPage() {
   const { applied, apply, remove, discount, freeShipping, clearAll } = useCouponSession();
   const currentUser = useAuthStore((s) => s.currentUser);
   const markOrdered = useAuthStore((s) => s.markOrdered);
-  const addOrder = useAccountDataStore((s) => s.addOrder);
 
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
 
   const subtotal = cartSubtotal(lines);
   const shipping = freeShipping || subtotal === 0 ? 0 : subtotal > 999 ? 0 : 99;
@@ -36,11 +37,17 @@ export default function CheckoutPage() {
   const total = Math.max(0, subtotal - discount) + shipping + tax;
   const user = currentUser();
   const isFirstOrder = !user?.hasOrderedBefore;
-  const canPlace = lines.length > 0 && name && address && city && pincode && phone;
+  const canPlace = lines.length > 0 && name && email && address && city && pincode && phone;
 
-  function placeOrder() {
+  useEffect(() => {
+    if (user?.email && !email) setEmail(user.email);
+  }, [user, email]);
+
+  async function placeOrder() {
     if (!canPlace) return;
     setPlacing(true);
+    setPlaceError(null);
+
     const order: Order = {
       id: `STR-${Date.now().toString().slice(-8)}`,
       date: new Date().toISOString(),
@@ -52,16 +59,46 @@ export default function CheckoutPage() {
       tax,
       total,
       couponCode: applied[0]?.code,
+      billingName: name,
+      billingAddress: address,
+      billingCity: city,
+      billingPincode: pincode,
+      billingPhone: phone,
     };
-    setTimeout(() => {
-      if (user) {
-        addOrder(user.email, order);
-        markOrdered(user.email);
-      }
-      clearCart();
-      clearAll();
-      router.push(`/checkout/confirmation?order=${order.id}&total=${total}`);
-    }, 900);
+
+    const supabase = createClient();
+    const { error } = await supabase.from("orders").insert({
+      id: order.id,
+      user_id: user?.id ?? null,
+      guest_email: user ? null : email,
+      date: order.date,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      shipping: order.shipping,
+      tax: order.tax,
+      total: order.total,
+      coupon_code: order.couponCode ?? null,
+      billing_name: order.billingName ?? null,
+      billing_address: order.billingAddress ?? null,
+      billing_city: order.billingCity ?? null,
+      billing_pincode: order.billingPincode ?? null,
+      billing_phone: order.billingPhone ?? null,
+    });
+
+    if (error) {
+      setPlacing(false);
+      setPlaceError("We couldn't place your order — please try again.");
+      return;
+    }
+
+    if (user) {
+      await markOrdered(user.email);
+    }
+    clearCart();
+    clearAll();
+    router.push(`/checkout/confirmation?order=${order.id}&total=${total}`);
   }
 
   return (
@@ -91,6 +128,7 @@ export default function CheckoutPage() {
                 <p className="font-display text-sm text-studio-ink">Shipping Address</p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="rounded-lg border border-studio-line bg-studio-void px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none sm:col-span-2" />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="rounded-lg border border-studio-line bg-studio-void px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none sm:col-span-2" />
                   <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address line" className="rounded-lg border border-studio-line bg-studio-void px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none sm:col-span-2" />
                   <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City / State" className="rounded-lg border border-studio-line bg-studio-void px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none" />
                   <input value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="PIN code" className="rounded-lg border border-studio-line bg-studio-void px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none" />
@@ -137,6 +175,7 @@ export default function CheckoutPage() {
               >
                 {placing ? "Placing Order..." : `Place Order — ${formatINR(total)}`}
               </button>
+              {placeError && <p className="mt-3 text-center text-xs text-rose-400">{placeError}</p>}
               <p className="mt-3 text-center text-[11px] text-studio-ink/30">
                 Payment processing isn't wired up yet — placing an order here simulates a confirmation.
               </p>

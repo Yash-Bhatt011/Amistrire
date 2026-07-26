@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:seed": "tsx supabase/seed.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "15.5.20",
+    "@supabase/supabase-js": "2.47.10",
+    "@supabase/ssr": "0.5.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "typescript": "5.7.2",
@@ -33,6 +36,7 @@
     "tailwind-merge": "2.5.5"
   },
   "devDependencies": {
+    "tsx": "4.19.2",
     "@types/node": "22.10.2",
     "@types/react": "19.2.0",
     "@types/react-dom": "19.2.0",

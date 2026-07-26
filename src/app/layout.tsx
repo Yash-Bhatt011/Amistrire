@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import { GlobalOverlays } from "@/components/ui/GlobalOverlays";
-import { IntroGate } from "@/components/ui/IntroGate";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { DataProvider } from "@/components/auth/DataProvider";
 import { SmoothScrollProvider } from "@/components/ui/SmoothScrollProvider";
+import { ServiceWorkerRegister } from "@/components/ui/ServiceWorkerRegister";
 import "./globals.css";
 
 const fontDisplay = Space_Grotesk({
@@ -34,6 +36,16 @@ export const metadata: Metadata = {
   title: "AMISTRIÉ — Precision 3D Printing Studio",
   description:
     "Scroll-driven, cinematic 3D printing showcase. Real-time material switching, a live printed-object catalog, and custom STL/OBJ/3MF upload with instant estimates.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Amistrié",
+  },
 };
 
 export const viewport: Viewport = {
@@ -47,10 +59,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
         className={`${fontDisplay.variable} ${fontWordmark.variable} ${fontSans.variable} ${fontMono.variable} font-sans bg-studio-void`}
       >
-        <SmoothScrollProvider>
-          <IntroGate>{children}</IntroGate>
-        </SmoothScrollProvider>
+        <SmoothScrollProvider>{children}</SmoothScrollProvider>
+        <AuthProvider />
+        <DataProvider />
         <GlobalOverlays />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

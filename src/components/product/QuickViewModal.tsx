@@ -6,6 +6,7 @@ import { X, Star } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { formatINR, cn } from "@/lib/utils";
 import { useCartStore } from "@/lib/store/cart-store";
+import { ProductModelViewer } from "./ProductModelViewer";
 
 export function QuickViewModal({ product, onClose }: { product: Product | null; onClose: () => void }) {
   const addLine = useCartStore((s) => s.addLine);
@@ -39,13 +40,20 @@ export function QuickViewModal({ product, onClose }: { product: Product | null; 
 
             <div
               className={cn(
-                "flex h-40 items-center justify-center rounded-xl border",
+                "flex h-40 items-center justify-center overflow-hidden rounded-xl border",
                 product.accent === "purple"
                   ? "border-accent-purple/30 bg-gradient-to-br from-accent-purple/15 to-studio-panel"
                   : "border-accent-cyan/30 bg-gradient-to-br from-accent-cyan/15 to-studio-panel"
               )}
             >
-              <div className="h-16 w-16 rounded-2xl border border-studio-line bg-studio-concrete" />
+              {product.media?.modelUrl ? (
+                <ProductModelViewer url={product.media.modelUrl} className="h-full w-full" />
+              ) : product.media?.images?.[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.media.images[0]} alt={product.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-16 w-16 rounded-2xl border border-studio-line bg-studio-concrete" />
+              )}
             </div>
 
             <p className="mt-5 font-display text-xl text-studio-ink">{product.name}</p>

@@ -2,16 +2,20 @@
 
 import { use, useEffect, useState } from "react";
 import { notFound } from "next/navigation";
-import { Star, Heart, Play } from "lucide-react";
+import { Star, Heart, Play, Box } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { ConfigPanel } from "@/components/product/ConfigPanel";
+import { ProductModelViewer } from "@/components/product/ProductModelViewer";
+import { ARViewButton } from "@/components/product/ARViewButton";
 import { RelatedProducts } from "@/components/product/RelatedProducts";
 import { Badge } from "@/components/ui/Badge";
 import { useProduct, useRelated } from "@/lib/catalog-hooks";
 import { useRecentlyViewedStore } from "@/lib/store/recently-viewed-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { cn } from "@/lib/utils";
+
+type ViewMode = { kind: "model" } | { kind: "video" } | { kind: "image"; index: number } | { kind: "placeholder" };
 
 export default function ProductDetailPage({
   params,
@@ -24,17 +28,20 @@ export default function ProductDetailPage({
   const wishlisted = useWishlistStore((s) => s.has(product?.slug ?? ""));
   const toggleWishlist = useWishlistStore((s) => s.toggle);
   const related = useRelated(product);
-  const [activeImage, setActiveImage] = useState(0);
-  const [showVideo, setShowVideo] = useState(false);
+
+  const images = product?.media?.images ?? [];
+  const hasModel = Boolean(product?.media?.modelUrl);
+  const hasVideo = Boolean(product?.media?.videoUrl);
+
+  const [view, setView] = useState<ViewMode>(() =>
+    hasModel ? { kind: "model" } : images.length > 0 ? { kind: "image", index: 0 } : { kind: "placeholder" }
+  );
 
   useEffect(() => {
     if (product) record(product.slug);
   }, [product, record]);
 
   if (!product) notFound();
-
-  const images = product.media?.images ?? [];
-  const hasGallery = images.length > 0;
 
   return (
     <>
@@ -50,15 +57,17 @@ export default function ProductDetailPage({
                   : "bg-gradient-to-br from-accent-cyan/15 via-studio-panel to-studio-panel"
               )}
             >
-              {hasGallery && !showVideo ? (
+              {view.kind === "model" && product.media?.modelUrl ? (
+                <ProductModelViewer url={product.media.modelUrl} className="h-full w-full" />
+              ) : view.kind === "video" && product.media?.videoUrl ? (
+                <video src={product.media.videoUrl} controls autoPlay className="h-full w-full object-cover" />
+              ) : view.kind === "image" && images[view.index] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={images[activeImage]}
+                  src={images[view.index]}
                   alt={product.seo?.imageAlt ?? product.name}
                   className="h-full w-full object-cover"
                 />
-              ) : showVideo && product.media?.videoUrl ? (
-                <video src={product.media.videoUrl} controls autoPlay className="h-full w-full object-cover" />
               ) : (
                 <div
                   className={cn(
@@ -73,35 +82,53 @@ export default function ProductDetailPage({
                 className="absolute right-4 top-4 rounded-full border border-white/10 bg-black/40 p-2.5 backdrop-blur-sm"
                 aria-label="Toggle wishlist"
               >
-                <Heart className={cn("h-4 w-4", wishlisted ? "fill-accent-purple text-accent-purple" : "text-studio-ink/60")} />
+                <Heart className={cn("h-4 w-4", wishlisted ? "fill-accent-purple text-accent-purple" : "text-white")} />
               </button>
               {product.badges?.[0] && (
                 <div className="absolute left-4 top-4">
                   <Badge kind={product.badges[0]} />
                 </div>
               )}
-              {product.media?.videoUrl && !showVideo && (
-                <button
-                  onClick={() => setShowVideo(true)}
-                  className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-[11px] text-white backdrop-blur-sm"
-                >
-                  <Play className="h-3 w-3" /> Watch video
-                </button>
+              {hasModel && view.kind !== "model" && (
+                <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-[11px] text-white backdrop-blur-sm">
+                  <Box className="h-3 w-3" /> Drag to rotate in 3D view
+                </span>
               )}
             </div>
 
-            {hasGallery && (
+            {(hasModel || hasVideo || images.length > 0) && (
               <div className="mt-3 flex gap-2">
+                {hasModel && (
+                  <button
+                    onClick={() => setView({ kind: "model" })}
+                    className={cn(
+                      "flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border",
+                      view.kind === "model" ? "border-accent-cyan bg-accent-cyan/10" : "border-studio-line"
+                    )}
+                    aria-label="View 3D model"
+                  >
+                    <Box className={cn("h-5 w-5", view.kind === "model" ? "text-accent-cyan" : "text-studio-ink/40")} />
+                  </button>
+                )}
+                {hasVideo && (
+                  <button
+                    onClick={() => setView({ kind: "video" })}
+                    className={cn(
+                      "flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border",
+                      view.kind === "video" ? "border-accent-cyan bg-accent-cyan/10" : "border-studio-line"
+                    )}
+                    aria-label="Play video"
+                  >
+                    <Play className={cn("h-5 w-5", view.kind === "video" ? "text-accent-cyan" : "text-studio-ink/40")} />
+                  </button>
+                )}
                 {images.map((img, i) => (
                   <button
                     key={img + i}
-                    onClick={() => {
-                      setActiveImage(i);
-                      setShowVideo(false);
-                    }}
+                    onClick={() => setView({ kind: "image", index: i })}
                     className={cn(
                       "h-16 w-16 shrink-0 overflow-hidden rounded-lg border",
-                      activeImage === i && !showVideo ? "border-accent-cyan" : "border-studio-line"
+                      view.kind === "image" && view.index === i ? "border-accent-cyan" : "border-studio-line"
                     )}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -141,6 +168,12 @@ export default function ProductDetailPage({
             <div className="mt-8">
               <ConfigPanel product={product} />
             </div>
+
+            {hasModel && product.media?.modelUrl && (
+              <div className="mt-4">
+                <ARViewButton modelUrl={product.media.modelUrl} alt={product.name} />
+              </div>
+            )}
 
             {product.specs && product.specs.length > 0 && (
               <div className="mt-8 rounded-2xl border border-studio-line bg-studio-panel p-5">

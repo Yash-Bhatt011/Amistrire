@@ -26,7 +26,7 @@ export default function AdminShowcasePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-studio-ink">3D Showcase</h1>
           <p className="mt-1 max-w-xl text-sm text-studio-ink/50">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2, Box } from "lucide-react";
 import { useAllCategoriesIncludingArchived } from "@/lib/catalog-hooks";
 import { useCatalogStore } from "@/lib/store/catalog-store";
+import { uploadFile } from "@/lib/supabase/upload";
 import type { Category } from "@/lib/types";
 
 const SHAPE_OPTIONS: NonNullable<Category["banner3DShape"]>[] = [
@@ -26,6 +27,8 @@ export default function AdminCategoriesPage() {
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
 
+  const [uploadingBanner, setUploadingBanner] = useState<string | null>(null);
+
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -35,9 +38,16 @@ export default function AdminCategoriesPage() {
     setTagline("");
   }
 
-  function handleBannerUpload(slug: string, file: File) {
-    const url = URL.createObjectURL(file);
-    updateCategory(slug, { bannerImage: url, banner3DShape: undefined });
+  async function handleBannerUpload(slug: string, file: File) {
+    setUploadingBanner(slug);
+    try {
+      const url = await uploadFile("gallery", file);
+      updateCategory(slug, { bannerImage: url, banner3DShape: undefined });
+    } catch {
+      alert("Upload failed — check you're logged in as staff and try again.");
+    } finally {
+      setUploadingBanner(null);
+    }
   }
 
   return (
@@ -48,8 +58,8 @@ export default function AdminCategoriesPage() {
       <div className="mt-3 max-w-2xl rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4 text-xs text-studio-ink/60">
         Give a category a banner image, or try the 3D icon instead — a small rotating shape (same
         family used in the homepage showcase) that renders live instead of a flat picture. Only one
-        applies at a time; 3D takes priority if both are set. Uploaded images preview instantly here
-        but need a real image host to persist past a reload — paste a URL for anything permanent.
+        applies at a time; 3D takes priority if both are set. Uploaded images are stored in
+        Supabase and persist permanently, same as a pasted URL.
       </div>
 
       <form onSubmit={handleAdd} className="mt-6 flex max-w-xl gap-3">
@@ -125,10 +135,11 @@ export default function AdminCategoriesPage() {
                 className="flex-1 rounded-lg border border-studio-line bg-white px-2 py-1.5 text-xs text-studio-ink focus:border-accent-cyan focus:outline-none"
               />
               <label className="cursor-pointer rounded-lg border border-dashed border-studio-line px-2 py-1.5 text-xs text-studio-ink/50 hover:border-accent-cyan hover:text-accent-cyan">
-                Upload
+                {uploadingBanner === c.slug ? "Uploading..." : "Upload"}
                 <input
                   type="file"
                   accept="image/*"
+                  disabled={uploadingBanner === c.slug}
                   className="sr-only"
                   onChange={(e) => {
                     const file = e.target.files?.[0];

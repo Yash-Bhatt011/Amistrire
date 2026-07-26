@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types";
 import { useCatalogStore } from "@/lib/store/catalog-store";
 import { useAllCategoriesIncludingArchived } from "@/lib/catalog-hooks";
+import { uploadFile } from "@/lib/supabase/upload";
 
 const BADGES: NonNullable<Product["badges"]>[number][] = ["bestseller", "new", "trending", "limited"];
 const INVENTORY_OPTIONS: Product["inventory"][] = ["in-stock", "low-stock", "made-to-order"];
@@ -37,6 +38,9 @@ export function ProductForm({ existing }: { existing?: Product }) {
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [videoUrl, setVideoUrl] = useState(existing?.media?.videoUrl ?? "");
   const [modelUrl, setModelUrl] = useState(existing?.media?.modelUrl ?? "");
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingModel, setUploadingModel] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,12 +90,36 @@ export function ProductForm({ existing }: { existing?: Product }) {
     router.push("/admin/products");
   }
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    if (!files) return;
-    const urls = Array.from(files).map((f) => URL.createObjectURL(f));
-    setImages((prev) => [...prev, ...urls]);
+    if (!files || files.length === 0) return;
     e.target.value = "";
+    setUploadingImages(true);
+    setUploadError(null);
+    try {
+      const urls = await Promise.all(Array.from(files).map((f) => uploadFile("product-images", f)));
+      setImages((prev) => [...prev, ...urls]);
+    } catch (err) {
+      setUploadError("Image upload failed — check you're logged in as staff and try again.");
+    } finally {
+      setUploadingImages(false);
+    }
+  }
+
+  async function handleModelFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploadingModel(true);
+    setUploadError(null);
+    try {
+      const url = await uploadFile("product-models", file);
+      setModelUrl(url);
+    } catch (err) {
+      setUploadError("Model upload failed — check you're logged in as staff and try again.");
+    } finally {
+      setUploadingModel(false);
+    }
   }
 
   function addImageUrl() {
@@ -133,7 +161,7 @@ export function ProductForm({ existing }: { existing?: Product }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-xs uppercase tracking-wider text-studio-ink/40">Category</label>
           <select
@@ -160,7 +188,7 @@ export function ProductForm({ existing }: { existing?: Product }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className="mb-1.5 block text-xs uppercase tracking-wider text-studio-ink/40">Base Price (₹)</label>
           <input
@@ -247,17 +275,16 @@ export function ProductForm({ existing }: { existing?: Product }) {
           </button>
         </div>
         <label className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-studio-line py-2 text-xs text-studio-ink/50 hover:border-accent-cyan hover:text-accent-cyan">
-          Or upload from your device
-          <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="sr-only" />
+          {uploadingImages ? "Uploading..." : "Or upload from your device"}
+          <input type="file" accept="image/*" multiple disabled={uploadingImages} onChange={handleFileUpload} className="sr-only" />
         </label>
+        {uploadError && <p className="mt-2 text-[11px] text-rose-500">{uploadError}</p>}
         <p className="mt-2 text-[11px] text-studio-ink/40">
-          URLs persist normally. Device uploads only preview in this tab — there's no image host
-          behind this yet, so use a URL (or connect real storage later) for anything that needs to
-          stay after a reload.
+          Uploads go to Supabase Storage and are publicly viewable, same as a pasted URL.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-xs uppercase tracking-wider text-studio-ink/40">Video URL (optional)</label>
           <input
@@ -268,13 +295,17 @@ export function ProductForm({ existing }: { existing?: Product }) {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs uppercase tracking-wider text-studio-ink/40">3D Model URL (GLB, optional)</label>
+          <label className="mb-1.5 block text-xs uppercase tracking-wider text-studio-ink/40">3D Model (GLB, optional)</label>
           <input
             value={modelUrl}
             onChange={(e) => setModelUrl(e.target.value)}
             placeholder="https://.../model.glb"
             className="w-full rounded-lg border border-studio-line bg-white px-3 py-2.5 text-sm text-studio-ink focus:border-accent-cyan focus:outline-none"
           />
+          <label className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-studio-line py-2 text-xs text-studio-ink/50 hover:border-accent-cyan hover:text-accent-cyan">
+            {uploadingModel ? "Uploading..." : "Or upload a .glb file"}
+            <input type="file" accept=".glb,.gltf" disabled={uploadingModel} onChange={handleModelFileUpload} className="sr-only" />
+          </label>
         </div>
       </div>
 

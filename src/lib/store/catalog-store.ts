@@ -1,88 +1,146 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type { Product, Category } from "../types";
-import { PRODUCTS as SEED_PRODUCTS, CATEGORIES as SEED_CATEGORIES } from "../product-data";
+import { createClient } from "../supabase/client";
+import {
+  rowToProduct,
+  productToRow,
+  productPatchToRow,
+  rowToCategory,
+  categoryToRow,
+  categoryPatchToRow,
+} from "../supabase/mappers";
+
+/**
+ * Real product/category catalog backed by Supabase (products + categories
+ * tables). Kept as a zustand store purely as a client-side cache for
+ * snappy, reactive UI — Supabase is the source of truth. All mutators are
+ * async and update Supabase first, then the local cache. Public API
+ * (addProduct, updateProduct, ...) is unchanged from the old mock version
+ * so existing admin pages didn't need rewriting.
+ */
 
 export type CatalogState = {
   products: Product[];
   categories: Category[];
-  addProduct: (p: Product) => void;
-  updateProduct: (slug: string, patch: Partial<Product>) => void;
-  deleteProduct: (slug: string) => void;
-  duplicateProduct: (slug: string) => void;
-  toggleArchiveProduct: (slug: string) => void;
-  addCategory: (c: Category) => void;
-  updateCategory: (slug: string, patch: Partial<Category>) => void;
-  deleteCategory: (slug: string) => void;
-  resetToSeed: () => void;
+  hydrated: boolean;
+  hydrate: () => Promise<void>;
+  addProduct: (p: Product) => Promise<void>;
+  updateProduct: (slug: string, patch: Partial<Product>) => Promise<void>;
+  deleteProduct: (slug: string) => Promise<void>;
+  duplicateProduct: (slug: string) => Promise<void>;
+  toggleArchiveProduct: (slug: string) => Promise<void>;
+  addCategory: (c: Category) => Promise<void>;
+  updateCategory: (slug: string, patch: Partial<Category>) => Promise<void>;
+  deleteCategory: (slug: string) => Promise<void>;
 };
 
-export const useCatalogStore = create<CatalogState>()(
-  persist(
-    (set, get) => ({
-      products: SEED_PRODUCTS,
-      categories: SEED_CATEGORIES,
+export const useCatalogStore = create<CatalogState>()((set, get) => ({
+  products: [],
+  categories: [],
+  hydrated: false,
 
-      addProduct: (p) => set({ products: [...get().products, p] }),
+  hydrate: async () => {
+    if (get().hydrated) return;
+    const supabase = createClient();
+    const [{ data: productRows }, { data: categoryRows }] = await Promise.all([
+      supabase.from("products").select("*"),
+      supabase.from("categories").select("*"),
+    ]);
+    set({
+      products: (productRows ?? []).map(rowToProduct),
+      categories: (categoryRows ?? []).map(rowToCategory),
+      hydrated: true,
+    });
+  },
 
-      updateProduct: (slug, patch) =>
-        set({ products: get().products.map((p) => (p.slug === slug ? { ...p, ...patch } : p)) }),
-
-      deleteProduct: (slug) => set({ products: get().products.filter((p) => p.slug !== slug) }),
-
-      duplicateProduct: (slug) => {
-        const source = get().products.find((p) => p.slug === slug);
-        if (!source) return;
-        const suffix = Date.now().toString().slice(-5);
-        const copy: Product = {
-          ...source,
-          slug: `${source.slug}-copy-${suffix}`,
-          name: `${source.name} (Copy)`,
-          badges: undefined,
-          featured: false,
-        };
-        set({ products: [...get().products, copy] });
-      },
-
-      toggleArchiveProduct: (slug) =>
-        set({
-          products: get().products.map((p) => (p.slug === slug ? { ...p, archived: !p.archived } : p)),
-        }),
-
-      addCategory: (c) => set({ categories: [...get().categories, c] }),
-
-      updateCategory: (slug, patch) =>
-        set({ categories: get().categories.map((c) => (c.slug === slug ? { ...c, ...patch } : c)) }),
-
-      deleteCategory: (slug) => set({ categories: get().categories.filter((c) => c.slug !== slug) }),
-
-      resetToSeed: () => set({ products: SEED_PRODUCTS, categories: SEED_CATEGORIES }),
-    }),
-    {
-      name: "amistrie-catalog",
-      version: 1,
-      // Guards against stale/incompatible localStorage from earlier builds —
-      // if a persisted field is missing or the wrong shape, fall back to the
-      // current in-memory (seed) value instead of overwriting it with
-      // undefined. This is what actually crashed useCategories/useActiveProducts
-      // when an older cached blob didn't carry a `categories` array.
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<CatalogState>;
-        return {
-          ...current,
-          products: Array.isArray(p.products) ? p.products : current.products,
-          categories: Array.isArray(p.categories) ? p.categories : current.categories,
-        };
-      },
+  addProduct: async (p) => {
+    set({ products: [...get().products, p] }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("products").insert(productToRow(p));
+    if (error) {
+      console.error("addProduct failed:", error.message);
+      set({ products: get().products.filter((x) => x.slug !== p.slug) }); // revert
     }
-  )
-);
+  },
 
-// Non-hook read helpers for use in places that already have the live array
-// (kept separate from the seed helpers in product-data.ts, which remain the
-// static fallback/defaults used only to initialize this store).
+  updateProduct: async (slug, patch) => {
+    const previous = get().products;
+    set({ products: previous.map((p) => (p.slug === slug ? { ...p, ...patch } : p)) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("products").update(productPatchToRow(patch)).eq("slug", slug);
+    if (error) {
+      console.error("updateProduct failed:", error.message);
+      set({ products: previous }); // revert
+    }
+  },
+
+  deleteProduct: async (slug) => {
+    const previous = get().products;
+    set({ products: previous.filter((p) => p.slug !== slug) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("products").delete().eq("slug", slug);
+    if (error) {
+      console.error("deleteProduct failed:", error.message);
+      set({ products: previous }); // revert
+    }
+  },
+
+  duplicateProduct: async (slug) => {
+    const source = get().products.find((p) => p.slug === slug);
+    if (!source) return;
+    const suffix = Date.now().toString().slice(-5);
+    const copy: Product = {
+      ...source,
+      slug: `${source.slug}-copy-${suffix}`,
+      name: `${source.name} (Copy)`,
+      badges: undefined,
+      featured: false,
+    };
+    await get().addProduct(copy);
+  },
+
+  toggleArchiveProduct: async (slug) => {
+    const product = get().products.find((p) => p.slug === slug);
+    if (!product) return;
+    await get().updateProduct(slug, { archived: !product.archived });
+  },
+
+  addCategory: async (c) => {
+    set({ categories: [...get().categories, c] }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("categories").insert(categoryToRow(c));
+    if (error) {
+      console.error("addCategory failed:", error.message);
+      set({ categories: get().categories.filter((x) => x.slug !== c.slug) }); // revert
+    }
+  },
+
+  updateCategory: async (slug, patch) => {
+    const previous = get().categories;
+    set({ categories: previous.map((c) => (c.slug === slug ? { ...c, ...patch } : c)) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("categories").update(categoryPatchToRow(patch)).eq("slug", slug);
+    if (error) {
+      console.error("updateCategory failed:", error.message);
+      set({ categories: previous }); // revert
+    }
+  },
+
+  deleteCategory: async (slug) => {
+    const previous = get().categories;
+    set({ categories: previous.filter((c) => c.slug !== slug) }); // optimistic
+    const supabase = createClient();
+    const { error } = await supabase.from("categories").delete().eq("slug", slug);
+    if (error) {
+      console.error("deleteCategory failed:", error.message);
+      set({ categories: previous }); // revert
+    }
+  },
+}));
+
+// Non-hook read helper (unchanged).
 export function activeProducts(products: Product[]): Product[] {
   return products.filter((p) => !p.archived);
 }

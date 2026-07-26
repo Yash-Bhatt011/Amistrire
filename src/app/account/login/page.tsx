@@ -10,18 +10,24 @@ import { useAuthStore } from "@/lib/store/auth-store";
 export default function LoginPage() {
   const router = useRouter();
   const logIn = useAuthStore((s) => s.logIn);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = logIn(email, password);
+
+    // One shared Supabase login — staff and customers are both normal
+    // accounts, just distinguished by profile role. Route accordingly.
+    const result = await logIn(email, password);
     if (!result.ok) {
       setError(result.error ?? "Something went wrong.");
       return;
     }
-    router.push("/account");
+
+    const user = currentUser();
+    router.push(user?.role === "staff" ? "/admin" : "/account");
   }
 
   return (
