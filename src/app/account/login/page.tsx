@@ -10,7 +10,6 @@ import { useAuthStore } from "@/lib/store/auth-store";
 export default function LoginPage() {
   const router = useRouter();
   const logIn = useAuthStore((s) => s.logIn);
-  const currentUser = useAuthStore((s) => s.currentUser);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +25,7 @@ export default function LoginPage() {
       return;
     }
 
-    const user = currentUser();
-    router.push(user?.role === "staff" ? "/admin" : "/account");
+    router.push(result.user?.role === "staff" ? "/admin" : "/account");
   }
 
   return (

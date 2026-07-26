@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
-import { User, MapPin, Package, Heart, Bookmark, Clock, Settings, LogOut, Download } from "lucide-react";
+import { User, MapPin, Package, Heart, Bookmark, Clock, Settings, LogOut, Download, Check } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useAccountDataStore } from "@/lib/store/account-data-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
@@ -31,9 +31,38 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
   const [tab, setTab] = useState<TabKey>(initialTab);
   const [addrForm, setAddrForm] = useState({ label: "", line1: "", city: "", state: "", pincode: "", phone: "" });
 
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const user = useAuthStore((s) => s.user);
   const logOut = useAuthStore((s) => s.logOut);
-  const user = currentUser();
+  const changePassword = useAuthStore((s) => s.changePassword);
+  const setEmailOptIn = useAuthStore((s) => s.setEmailOptIn);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState<{ type: "ok" | "error"; message: string } | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordStatus(null);
+    if (newPassword.length < 8) {
+      setPasswordStatus({ type: "error", message: "Password must be at least 8 characters." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ type: "error", message: "Passwords don't match." });
+      return;
+    }
+    setPasswordSaving(true);
+    const result = await changePassword(newPassword);
+    setPasswordSaving(false);
+    if (!result.ok) {
+      setPasswordStatus({ type: "error", message: result.error ?? "Something went wrong." });
+      return;
+    }
+    setPasswordStatus({ type: "ok", message: "Password updated." });
+    setNewPassword("");
+    setConfirmPassword("");
+  }
 
   const addresses = useAccountDataStore(useShallow((s) => (user ? s.addressesByEmail[user.email] ?? [] : [])));
   const addAddress = useAccountDataStore((s) => s.addAddress);
@@ -122,8 +151,8 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
             </button>
           ))}
           <button
-            onClick={() => {
-              logOut();
+            onClick={async () => {
+              await logOut();
               router.push("/");
             }}
             className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs text-rose-400/80 hover:text-rose-400"
@@ -255,12 +284,61 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
           )}
 
           {tab === "settings" && (
-            <div className="rounded-2xl border border-studio-line bg-studio-panel p-6">
-              <p className="text-sm text-studio-ink">Account Settings</p>
-              <p className="mt-2 text-xs text-studio-ink/40">
-                Password changes and notification preferences will live here once account
-                management is connected to a real backend.
-              </p>
+            <div className="flex flex-col gap-6">
+              <form onSubmit={handlePasswordChange} className="rounded-2xl border border-studio-line bg-studio-panel p-6">
+                <p className="text-sm text-studio-ink">Change Password</p>
+                <p className="mt-1 text-xs text-studio-ink/40">At least 8 characters.</p>
+                <div className="mt-4 flex flex-col gap-3 sm:max-w-xs">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password"
+                    className="rounded-lg border border-studio-line bg-white px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="rounded-lg border border-studio-line bg-white px-3 py-2.5 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none"
+                  />
+                  {passwordStatus && (
+                    <p className={cn("text-xs", passwordStatus.type === "ok" ? "text-emerald-500" : "text-rose-500")}>
+                      {passwordStatus.message}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="mt-1 self-start rounded-full bg-gradient-to-r from-accent-cyan to-accent-purple px-4 py-2 text-xs font-medium uppercase tracking-wider text-studio-void disabled:opacity-60"
+                  >
+                    {passwordSaving ? "Saving..." : "Update Password"}
+                  </button>
+                </div>
+              </form>
+
+              <div className="rounded-2xl border border-studio-line bg-studio-panel p-6">
+                <p className="text-sm text-studio-ink">Notifications</p>
+                <label className="mt-4 flex max-w-sm cursor-pointer items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEmailOptIn(!(user?.emailOptIn ?? true))}
+                    className={cn(
+                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
+                      user?.emailOptIn ?? true
+                        ? "border-accent-cyan bg-accent-cyan text-studio-void"
+                        : "border-studio-line bg-white"
+                    )}
+                  >
+                    {(user?.emailOptIn ?? true) && <Check className="h-3.5 w-3.5" />}
+                  </button>
+                  <span className="text-xs text-studio-ink/60">
+                    Order updates and occasional promotions by email. You'll always get
+                    transactional emails (order confirmations, shipping) regardless of this setting.
+                  </span>
+                </label>
+              </div>
             </div>
           )}
         </div>

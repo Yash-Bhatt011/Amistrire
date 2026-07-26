@@ -21,8 +21,11 @@ create table if not exists public.profiles (
   role text not null default 'customer' check (role in ('customer', 'staff')),
   staff_role text check (staff_role in ('owner', 'manager', 'staff')),
   has_ordered_before boolean not null default false,
+  email_opt_in boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists email_opt_in boolean not null default true;
 
 alter table public.profiles enable row level security;
 

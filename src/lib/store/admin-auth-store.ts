@@ -23,7 +23,7 @@ export const useAdminAuthStore = create<AdminAuthState>()((_set, _get) => ({
     const result = await useAuthStore.getState().logIn(email, password);
     if (!result.ok) return result;
 
-    const user = useAuthStore.getState().currentUser();
+    const user = result.user;
     if (!user || user.role !== "staff") {
       // Valid account, but not a staff/admin account — sign back out so a
       // customer session isn't left half-authenticated on the admin flow.

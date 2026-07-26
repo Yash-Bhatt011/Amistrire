@@ -31,7 +31,7 @@ export function ConfigPanel({ product }: { product: Product }) {
   const [justAdded, setJustAdded] = useState(false);
 
   const addLine = useCartStore((s) => s.addLine);
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const user = useAuthStore((s) => s.user);
   const saveDesign = useAccountDataStore((s) => s.saveDesign);
 
   const unitPrice = useMemo(() => {
@@ -64,7 +64,6 @@ export function ConfigPanel({ product }: { product: Product }) {
   }
 
   function handleSaveDesign() {
-    const user = currentUser();
     if (!user) return;
     saveDesign(user.email, { productSlug: product.slug, name: `${product.name} (custom)`, selectedOptions: selected });
   }
@@ -162,7 +161,7 @@ export function ConfigPanel({ product }: { product: Product }) {
         <ConfettiBurst active={justAdded} />
       </div>
 
-      {currentUser() && (
+      {user && (
         <button
           onClick={handleSaveDesign}
           className="mt-3 flex w-full items-center justify-center gap-2 text-xs text-studio-ink/40 hover:text-studio-ink"

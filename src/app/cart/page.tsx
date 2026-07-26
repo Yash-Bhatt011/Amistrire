@@ -17,14 +17,14 @@ export default function CartPage() {
   const allProducts = useAllProductsIncludingArchived();
   const setQuantity = useCartStore((s) => s.setQuantity);
   const removeLine = useCartStore((s) => s.removeLine);
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const user = useAuthStore((s) => s.user);
   const { applied, apply, remove, discount, freeShipping } = useCouponSession();
 
   const subtotal = cartSubtotal(lines);
   const shipping = freeShipping || subtotal === 0 ? 0 : subtotal > 999 ? 0 : 99;
   const tax = Math.round((subtotal - discount) * 0.18);
   const total = Math.max(0, subtotal - discount) + shipping + tax;
-  const isFirstOrder = !currentUser()?.hasOrderedBefore;
+  const isFirstOrder = !user?.hasOrderedBefore;
 
   return (
     <>

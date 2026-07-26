@@ -69,8 +69,8 @@ function SidebarContent({ staff, pathname, onNavigate }: { staff: { name: string
         <p className="px-2 text-xs text-studio-ink">{staff.name}</p>
         <p className="px-2 text-[11px] uppercase tracking-wider text-accent-cyan">{staff.role}</p>
         <button
-          onClick={() => {
-            logOut();
+          onClick={async () => {
+            await logOut();
             router.push("/admin/login");
           }}
           className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-studio-ink/50 hover:text-rose-500"
@@ -88,8 +88,7 @@ function SidebarContent({ staff, pathname, onNavigate }: { staff: { name: string
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const currentStaff = useAdminAuthStore((s) => s.currentStaff);
-  const staff = currentStaff();
+  const staff = useAdminAuthStore((s) => s.currentStaff());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {

@@ -19,7 +19,7 @@ export default function CheckoutPage() {
   const lines = useCartStore((s) => s.lines);
   const clearCart = useCartStore((s) => s.clear);
   const { applied, apply, remove, discount, freeShipping, clearAll } = useCouponSession();
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const user = useAuthStore((s) => s.user);
   const markOrdered = useAuthStore((s) => s.markOrdered);
 
   const [name, setName] = useState("");
@@ -35,7 +35,6 @@ export default function CheckoutPage() {
   const shipping = freeShipping || subtotal === 0 ? 0 : subtotal > 999 ? 0 : 99;
   const tax = Math.round((subtotal - discount) * 0.18);
   const total = Math.max(0, subtotal - discount) + shipping + tax;
-  const user = currentUser();
   const isFirstOrder = !user?.hasOrderedBefore;
   const canPlace = lines.length > 0 && name && email && address && city && pincode && phone;
 
