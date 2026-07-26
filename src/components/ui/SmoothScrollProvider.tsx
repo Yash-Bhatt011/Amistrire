@@ -13,6 +13,12 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (reducedMotion) return;
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+      // Touch devices (phones/tablets): let native scrolling handle it.
+      // Lenis's virtualized scroll commonly fights with native touch
+      // momentum, making the page feel stuck or unresponsive on mobile.
+      return;
+    }
 
     const lenis = new Lenis({
       duration: 1.1,

@@ -17,10 +17,23 @@ let browserClient: ReturnType<typeof createBrowserClient<Database>> | undefined;
 
 export function createClient() {
   if (!browserClient) {
-    browserClient = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !anonKey) {
+      // This almost always means the env vars are set locally (.env.local)
+      // but were never added to the deployment host — .env.local is
+      // gitignored on purpose, so it never reaches Vercel/etc. on its own.
+      // Symptoms without this check: uploads that don't persist, and being
+      // logged out on every refresh, both with no obvious error.
+      console.error(
+        "[Supabase] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are missing. " +
+          "If this is a deployed site, add them in your host's environment variable settings " +
+          "and redeploy — .env.local is not automatically picked up by Vercel/etc."
+      );
+    }
+
+    browserClient = createBrowserClient<Database>(url ?? "", anonKey ?? "");
   }
   return browserClient;
 }
