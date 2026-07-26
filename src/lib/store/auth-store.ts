@@ -16,6 +16,7 @@ export type AuthedUser = {
   role: "customer" | "staff";
   staffRole: "owner" | "manager" | "staff" | null;
   hasOrderedBefore: boolean;
+  createdAt: string;
 };
 
 type AuthState = {
@@ -39,6 +40,7 @@ async function loadProfile(supabase: ReturnType<typeof createClient>, userId: st
     role: data.role,
     staffRole: data.staff_role,
     hasOrderedBefore: data.has_ordered_before,
+    createdAt: data.created_at,
   };
 }
 

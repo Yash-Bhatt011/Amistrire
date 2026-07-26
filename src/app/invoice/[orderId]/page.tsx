@@ -4,7 +4,6 @@ import { InvoiceDocument } from "@/components/invoice/InvoiceDocument";
 import { InvoicePrintButton } from "@/components/invoice/InvoicePrintButton";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCTS } from "@/lib/product-data";
-import { findProduct } from "@/lib/catalog-hooks";
 import type { Order, CartLine } from "@/lib/types";
 
 export default async function InvoicePage({ params }: { params: Promise<{ orderId: string }> }) {
@@ -71,7 +70,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ orderI
           <InvoiceDocument
             order={order}
             customerEmail={customerEmail}
-            findProductName={(slug) => findProduct(PRODUCTS, slug)?.name ?? slug}
+            findProductName={(slug) => PRODUCTS.find((p) => p.slug === slug)?.name ?? slug}
           />
         </div>
       </main>

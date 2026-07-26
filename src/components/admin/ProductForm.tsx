@@ -93,11 +93,12 @@ export function ProductForm({ existing }: { existing?: Product }) {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    const fileArray = Array.from(files); // snapshot before clearing e.target.value below
     e.target.value = "";
     setUploadingImages(true);
     setUploadError(null);
     try {
-      const urls = await Promise.all(Array.from(files).map((f) => uploadFile("product-images", f)));
+      const urls = await Promise.all(fileArray.map((f) => uploadFile("product-images", f)));
       setImages((prev) => [...prev, ...urls]);
     } catch (err) {
       setUploadError("Image upload failed — check you're logged in as staff and try again.");
