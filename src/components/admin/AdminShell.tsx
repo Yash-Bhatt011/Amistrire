@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useAdminAuthStore } from "@/lib/store/admin-auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -88,7 +89,8 @@ function SidebarContent({ staff, pathname, onNavigate }: { staff: { name: string
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const staff = useAdminAuthStore((s) => s.currentStaff());
+  const user = useAuthStore((s) => s.user);
+  const staff = user && user.role === "staff" ? { name: user.name, email: user.email, role: user.staffRole ?? "staff" } : null;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
