@@ -93,9 +93,6 @@ export function Footer() {
         </a>
         <div className="flex items-center gap-4">
           <p className="text-xs text-studio-ink/30">© {new Date().getFullYear()} Amistrié Print Studio</p>
-          <Link href="/admin" className="text-xs text-studio-ink/20 hover:text-studio-ink/50">
-            Admin
-          </Link>
         </div>
       </div>
     </footer>

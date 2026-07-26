@@ -93,7 +93,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!staff && pathname !== "/admin/login") {
-      router.replace("/admin/login");
+      router.replace("/account/login");
     }
   }, [staff, pathname, router]);
 
