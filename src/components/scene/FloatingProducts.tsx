@@ -117,7 +117,7 @@ export function FloatingProducts({ mobile }: { mobile: boolean }) {
       <directionalLight position={[4, 6, 5]} intensity={1.2} />
       <directionalLight position={[-4, -2, 3]} intensity={0.4} color="#bf5af2" />
       <Suspense fallback={null}>
-        <Environment preset="city" environmentIntensity={0.4} />
+       <Environment files="/potsdamer_platz_1k.hdr" />
         {slots.map((slot) => (
           <Shape key={slot.id} slot={slot} disabled={reducedMotion} />
         ))}

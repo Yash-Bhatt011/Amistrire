@@ -48,33 +48,38 @@ async function loadProfile(supabase: ReturnType<typeof createClient>, userId: st
   };
 }
 
+let initPromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   initialized: false,
 
-  init: async () => {
-    if (get().initialized) return;
-    const supabase = createClient();
+  init: () => {
+    if (initPromise) return initPromise;
+    initPromise = (async () => {
+      const supabase = createClient();
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (session?.user) {
-      const profile = await loadProfile(supabase, session.user.id, session.user.email ?? "");
-      set({ user: profile, initialized: true });
-    } else {
-      set({ user: null, initialized: true });
-    }
-
-    supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (newSession?.user) {
-        const profile = await loadProfile(supabase, newSession.user.id, newSession.user.email ?? "");
-        set({ user: profile });
+      if (session?.user) {
+        const profile = await loadProfile(supabase, session.user.id, session.user.email ?? "");
+        set({ user: profile, initialized: true });
       } else {
-        set({ user: null });
+        set({ user: null, initialized: true });
       }
-    });
+
+      supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        if (newSession?.user) {
+          const profile = await loadProfile(supabase, newSession.user.id, newSession.user.email ?? "");
+          set({ user: profile });
+        } else {
+          set({ user: null });
+        }
+      });
+    })();
+    return initPromise;
   },
 
   signUp: async (name, email, password) => {

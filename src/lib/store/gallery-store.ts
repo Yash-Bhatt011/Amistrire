@@ -23,15 +23,20 @@ type GalleryState = {
   moveItem: (id: string, direction: "up" | "down") => Promise<void>;
 };
 
+let galleryHydratePromise: Promise<void> | null = null;
+
 export const useGalleryStore = create<GalleryState>()((set, get) => ({
   items: [],
   hydrated: false,
 
-  hydrate: async () => {
-    if (get().hydrated) return;
-    const supabase = createClient();
-    const { data } = await supabase.from("gallery").select("*").order("position", { ascending: true });
-    set({ items: (data ?? []).map(rowToGalleryItem), hydrated: true });
+  hydrate: () => {
+    if (galleryHydratePromise) return galleryHydratePromise;
+    galleryHydratePromise = (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("gallery").select("*").order("position", { ascending: true });
+      set({ items: (data ?? []).map(rowToGalleryItem), hydrated: true });
+    })();
+    return galleryHydratePromise;
   },
 
   addItem: async (item) => {

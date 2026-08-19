@@ -13,6 +13,8 @@ function ConfirmationDetails() {
   const params = useSearchParams();
   const orderId = params.get("order") ?? "STR-00000000";
   const total = Number(params.get("total") ?? 0);
+  const token = params.get("t");
+  const invoiceHref = token ? `/invoice/${orderId}?t=${token}` : `/invoice/${orderId}`;
 
   return (
     <>
@@ -31,7 +33,7 @@ function ConfirmationDetails() {
         <p className="mt-1 font-mono text-lg text-studio-ink">{formatINR(total)}</p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link href={`/invoice/${orderId}`} className="rounded-full border border-studio-line px-5 py-2.5 text-xs uppercase tracking-wider text-studio-ink hover:border-accent-cyan hover:text-accent-cyan">
+          <Link href={invoiceHref} className="rounded-full border border-studio-line px-5 py-2.5 text-xs uppercase tracking-wider text-studio-ink hover:border-accent-cyan hover:text-accent-cyan">
             View Invoice
           </Link>
           <Link href="/account/orders" className="rounded-full border border-studio-line px-5 py-2.5 text-xs uppercase tracking-wider text-studio-ink hover:border-accent-cyan hover:text-accent-cyan">

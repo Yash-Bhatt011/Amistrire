@@ -52,7 +52,7 @@ export function ProductModelViewer({ url, className }: { url: string; className?
           <ambientLight intensity={0.8} />
           <directionalLight position={[3, 4, 3]} intensity={1.2} />
           <Suspense fallback={null}>
-            <Environment preset="studio" environmentIntensity={0.5} />
+            <Environment files="/potsdamer_platz_1k.hdr" />
             <SpinningModel url={url} />
           </Suspense>
           <OrbitControls enableZoom={false} enablePan={false} />

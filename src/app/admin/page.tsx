@@ -31,6 +31,7 @@ export default function AdminDashboardPage() {
           id: row.id,
           date: row.date,
           status: row.status,
+          paymentStatus: row.payment_status ?? undefined,
           items: row.items ?? [],
           subtotal: row.subtotal,
           discount: row.discount,
@@ -48,7 +49,7 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const revenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const revenue = orders.filter((o) => o.paymentStatus === "paid").reduce((sum, o) => sum + o.total, 0);
 
   const cards = [
     { label: "Products", value: products.length, icon: Package },

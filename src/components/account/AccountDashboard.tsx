@@ -106,6 +106,10 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
           billingCity: row.billing_city ?? undefined,
           billingPincode: row.billing_pincode ?? undefined,
           billingPhone: row.billing_phone ?? undefined,
+          paymentStatus: row.payment_status ?? undefined,
+          courier: row.courier ?? undefined,
+          trackingNumber: row.tracking_number ?? undefined,
+          trackingUrl: row.tracking_url ?? undefined,
         }));
         setOrders(mapped);
         setOrdersLoading(false);
@@ -219,13 +223,37 @@ export function AccountDashboard({ initialTab = "profile" }: { initialTab?: TabK
               {!ordersLoading && orders.length === 0 && <p className="text-sm text-studio-ink/40">No orders yet.</p>}
               {orders.map((order) => (
                 <div key={order.id} className="rounded-2xl border border-studio-line bg-studio-panel p-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="font-mono text-sm text-studio-ink">{order.id}</p>
-                    <span className="rounded-full border border-accent-cyan/30 px-2.5 py-1 text-[10px] uppercase tracking-wider text-accent-cyan">
-                      {order.status.replace("-", " ")}
-                    </span>
+                    <div className="flex gap-1.5">
+                      {order.paymentStatus && order.paymentStatus !== "paid" && (
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider",
+                            order.paymentStatus === "failed" ? "bg-rose-500/10 text-rose-500" : "bg-amber-500/10 text-amber-500"
+                          )}
+                        >
+                          Payment {order.paymentStatus}
+                        </span>
+                      )}
+                      <span className="rounded-full border border-accent-cyan/30 px-2.5 py-1 text-[10px] uppercase tracking-wider text-accent-cyan">
+                        {order.status.replace("-", " ")}
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-studio-ink/40">{new Date(order.date).toLocaleDateString()} · {order.items.length} item(s)</p>
+                  {order.trackingNumber && (
+                    <p className="mt-1 text-xs text-studio-ink/50">
+                      {order.courier ?? "Courier"}:{" "}
+                      {order.trackingUrl ? (
+                        <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" className="text-accent-cyan hover:underline">
+                          {order.trackingNumber}
+                        </a>
+                      ) : (
+                        order.trackingNumber
+                      )}
+                    </p>
+                  )}
                   <div className="mt-3 flex items-center justify-between">
                     <span className="font-mono text-sm text-studio-ink">{formatINR(order.total)}</span>
                     <Link href={`/invoice/${order.id}`} className="flex items-center gap-1.5 text-xs text-studio-ink/50 hover:text-studio-ink">

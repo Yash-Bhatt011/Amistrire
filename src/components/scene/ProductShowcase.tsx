@@ -106,7 +106,7 @@ export function ProductShowcase() {
       <spotLight position={[3, 4, 3]} angle={0.4} penumbra={0.6} intensity={1.4} castShadow={!mobile} />
       <pointLight position={[-3, 1, -2]} intensity={0.5} color="#bf5af2" />
       <Suspense fallback={null}>
-        <Environment preset="city" environmentIntensity={0.5} />
+        <Environment files="/potsdamer_platz_1k.hdr" />
         <CursorTilt mobile={mobile} disabled={reducedMotion}>
           <Products />
         </CursorTilt>

@@ -29,14 +29,17 @@ alter table public.profiles add column if not exists email_opt_in boolean not nu
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "profiles: read own" on public.profiles;
 create policy "profiles: read own" on public.profiles
   for select using (auth.uid() = id);
 
+drop policy if exists "profiles: staff read all" on public.profiles;
 create policy "profiles: staff read all" on public.profiles
   for select using (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
   );
 
+drop policy if exists "profiles: update own" on public.profiles;
 create policy "profiles: update own" on public.profiles
   for update using (auth.uid() = id);
 
@@ -73,7 +76,9 @@ create table if not exists public.categories (
 
 alter table public.categories enable row level security;
 
+drop policy if exists "categories: public read" on public.categories;
 create policy "categories: public read" on public.categories for select using (true);
+drop policy if exists "categories: staff write" on public.categories;
 create policy "categories: staff write" on public.categories for all using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 ) with check (
@@ -109,7 +114,9 @@ create table if not exists public.products (
 
 alter table public.products enable row level security;
 
+drop policy if exists "products: public read" on public.products;
 create policy "products: public read" on public.products for select using (true);
+drop policy if exists "products: staff write" on public.products;
 create policy "products: staff write" on public.products for all using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 ) with check (
@@ -132,7 +139,9 @@ create table if not exists public.coupons (
 
 alter table public.coupons enable row level security;
 
+drop policy if exists "coupons: public read" on public.coupons;
 create policy "coupons: public read" on public.coupons for select using (true);
+drop policy if exists "coupons: staff write" on public.coupons;
 create policy "coupons: staff write" on public.coupons for all using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 ) with check (
@@ -155,10 +164,12 @@ create table if not exists public.addresses (
 
 alter table public.addresses enable row level security;
 
+drop policy if exists "addresses: own only" on public.addresses;
 create policy "addresses: own only" on public.addresses for all using (
   auth.uid() = user_id
 ) with check (auth.uid() = user_id);
 
+drop policy if exists "addresses: staff read all" on public.addresses;
 create policy "addresses: staff read all" on public.addresses for select using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
@@ -186,17 +197,21 @@ create table if not exists public.orders (
 
 alter table public.orders enable row level security;
 
+drop policy if exists "orders: read own" on public.orders;
 create policy "orders: read own" on public.orders for select using (auth.uid() = user_id);
 
+drop policy if exists "orders: staff read all" on public.orders;
 create policy "orders: staff read all" on public.orders for select using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
 
+drop policy if exists "orders: staff update" on public.orders;
 create policy "orders: staff update" on public.orders for update using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
 
 -- Anyone (including guests) can create an order at checkout.
+drop policy if exists "orders: anyone can insert" on public.orders;
 create policy "orders: anyone can insert" on public.orders for insert with check (true);
 
 -- NOTE on guest orders: because there's no login for a guest, this policy
@@ -205,6 +220,7 @@ create policy "orders: anyone can insert" on public.orders for insert with check
 -- number" flow many stores use for guest checkout). This is intentionally
 -- more permissive than the logged-in-user policy above — if you want guest
 -- orders locked down further, require login at checkout instead.
+drop policy if exists "orders: guest read by id" on public.orders;
 create policy "orders: guest read by id" on public.orders for select using (user_id is null);
 
 -- ---------- order_items (optional normalized view; items also live as jsonb above) ----------
@@ -224,7 +240,9 @@ create table if not exists public.reviews (
 
 alter table public.reviews enable row level security;
 
+drop policy if exists "reviews: public read" on public.reviews;
 create policy "reviews: public read" on public.reviews for select using (true);
+drop policy if exists "reviews: staff write" on public.reviews;
 create policy "reviews: staff write" on public.reviews for all using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 ) with check (
@@ -242,7 +260,9 @@ create table if not exists public.gallery (
 
 alter table public.gallery enable row level security;
 
+drop policy if exists "gallery: public read" on public.gallery;
 create policy "gallery: public read" on public.gallery for select using (true);
+drop policy if exists "gallery: staff write" on public.gallery;
 create policy "gallery: staff write" on public.gallery for all using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 ) with check (
@@ -258,35 +278,47 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true), ('product-models', 'product-models', true), ('gallery', 'gallery', true)
 on conflict (id) do nothing;
 
+drop policy if exists "public read product-images" on storage.objects;
 create policy "public read product-images" on storage.objects for select using (bucket_id = 'product-images');
+drop policy if exists "staff write product-images" on storage.objects;
 create policy "staff write product-images" on storage.objects for insert with check (
   bucket_id = 'product-images' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff update product-images" on storage.objects;
 create policy "staff update product-images" on storage.objects for update using (
   bucket_id = 'product-images' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff delete product-images" on storage.objects;
 create policy "staff delete product-images" on storage.objects for delete using (
   bucket_id = 'product-images' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
 
+drop policy if exists "public read product-models" on storage.objects;
 create policy "public read product-models" on storage.objects for select using (bucket_id = 'product-models');
+drop policy if exists "staff write product-models" on storage.objects;
 create policy "staff write product-models" on storage.objects for insert with check (
   bucket_id = 'product-models' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff update product-models" on storage.objects;
 create policy "staff update product-models" on storage.objects for update using (
   bucket_id = 'product-models' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff delete product-models" on storage.objects;
 create policy "staff delete product-models" on storage.objects for delete using (
   bucket_id = 'product-models' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
 
+drop policy if exists "public read gallery" on storage.objects;
 create policy "public read gallery" on storage.objects for select using (bucket_id = 'gallery');
+drop policy if exists "staff write gallery" on storage.objects;
 create policy "staff write gallery" on storage.objects for insert with check (
   bucket_id = 'gallery' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff update gallery" on storage.objects;
 create policy "staff update gallery" on storage.objects for update using (
   bucket_id = 'gallery' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );
+drop policy if exists "staff delete gallery" on storage.objects;
 create policy "staff delete gallery" on storage.objects for delete using (
   bucket_id = 'gallery' and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'staff')
 );

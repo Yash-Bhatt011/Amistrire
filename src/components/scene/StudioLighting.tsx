@@ -6,7 +6,7 @@ export function StudioLighting({ mobile }: { mobile: boolean }) {
   return (
     <>
       {/* HDRI environment for realistic reflections on metal/plastic/glass */}
-      <Environment preset="warehouse" environmentIntensity={0.6} />
+      <Environment files="/potsdamer_platz_1k.hdr" environmentIntensity={0.6} />
 
       {/* Key light */}
       <spotLight

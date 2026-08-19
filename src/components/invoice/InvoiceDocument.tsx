@@ -47,6 +47,30 @@ export function InvoiceDocument({
           <p className="mt-1 inline-block rounded-full bg-accent-cyan/10 px-3 py-1 text-xs uppercase text-accent-cyan">
             {order.status.replace("-", " ")}
           </p>
+          {order.paymentStatus && (
+            <p
+              className={`mt-1.5 inline-block rounded-full px-3 py-1 text-xs uppercase ${
+                order.paymentStatus === "paid"
+                  ? "bg-emerald-500/10 text-emerald-600"
+                  : order.paymentStatus === "failed"
+                    ? "bg-rose-500/10 text-rose-600"
+                    : "bg-amber-500/10 text-amber-600"
+              }`}
+            >
+              Payment {order.paymentStatus}
+            </p>
+          )}
+          {order.trackingNumber && (
+            <p className="mt-2 text-xs text-studio-ink/50">
+              {order.courier ?? "Courier"}: {order.trackingUrl ? (
+                <a href={order.trackingUrl} className="text-accent-cyan hover:underline" target="_blank" rel="noopener noreferrer">
+                  {order.trackingNumber}
+                </a>
+              ) : (
+                order.trackingNumber
+              )}
+            </p>
+          )}
         </div>
       </div>
 

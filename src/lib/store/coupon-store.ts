@@ -14,15 +14,20 @@ type CouponStoreState = {
   deleteCoupon: (code: string) => Promise<void>;
 };
 
+let couponHydratePromise: Promise<void> | null = null;
+
 export const useCouponStore = create<CouponStoreState>()((set, get) => ({
   coupons: [],
   hydrated: false,
 
-  hydrate: async () => {
-    if (get().hydrated) return;
-    const supabase = createClient();
-    const { data } = await supabase.from("coupons").select("*");
-    set({ coupons: (data ?? []).map(rowToCoupon), hydrated: true });
+  hydrate: () => {
+    if (couponHydratePromise) return couponHydratePromise;
+    couponHydratePromise = (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("coupons").select("*");
+      set({ coupons: (data ?? []).map(rowToCoupon), hydrated: true });
+    })();
+    return couponHydratePromise;
   },
 
   addCoupon: async (c) => {

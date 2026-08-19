@@ -126,6 +126,7 @@ export type Order = {
   id: string;
   date: string;
   status: "processing" | "in-production" | "shipped" | "delivered";
+  paymentStatus?: "pending" | "paid" | "failed" | "refunded";
   items: CartLine[];
   subtotal: number;
   discount: number;
@@ -138,4 +139,7 @@ export type Order = {
   billingCity?: string;
   billingPincode?: string;
   billingPhone?: string;
+  courier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
 };

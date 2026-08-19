@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { signUpSchema } from "@/lib/validation";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -18,6 +19,11 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const parsed = signUpSchema.safeParse({ name, email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please check the details you entered.");
+      return;
+    }
     const result = await signUp(name, email, password);
     if (!result.ok) {
       setError(result.error ?? "Something went wrong.");
@@ -58,10 +64,10 @@ export default function SignupPage() {
             <input
               type="password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password (min. 6 characters)"
+              placeholder="Password (min. 8 characters)"
               className="rounded-lg border border-studio-line bg-studio-panel px-4 py-3 text-sm text-studio-ink placeholder:text-studio-ink/30 focus:border-accent-cyan focus:outline-none"
             />
             {error && <p className="text-xs text-rose-400">{error}</p>}

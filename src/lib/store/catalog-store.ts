@@ -36,23 +36,28 @@ export type CatalogState = {
   deleteCategory: (slug: string) => Promise<void>;
 };
 
+let catalogHydratePromise: Promise<void> | null = null;
+
 export const useCatalogStore = create<CatalogState>()((set, get) => ({
   products: [],
   categories: [],
   hydrated: false,
 
-  hydrate: async () => {
-    if (get().hydrated) return;
-    const supabase = createClient();
-    const [{ data: productRows }, { data: categoryRows }] = await Promise.all([
-      supabase.from("products").select("*"),
-      supabase.from("categories").select("*"),
-    ]);
-    set({
-      products: (productRows ?? []).map(rowToProduct),
-      categories: (categoryRows ?? []).map(rowToCategory),
-      hydrated: true,
-    });
+  hydrate: () => {
+    if (catalogHydratePromise) return catalogHydratePromise;
+    catalogHydratePromise = (async () => {
+      const supabase = createClient();
+      const [{ data: productRows }, { data: categoryRows }] = await Promise.all([
+        supabase.from("products").select("*"),
+        supabase.from("categories").select("*"),
+      ]);
+      set({
+        products: (productRows ?? []).map(rowToProduct),
+        categories: (categoryRows ?? []).map(rowToCategory),
+        hydrated: true,
+      });
+    })();
+    return catalogHydratePromise;
   },
 
   addProduct: async (p) => {

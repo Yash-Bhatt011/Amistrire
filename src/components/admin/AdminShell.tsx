@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -90,7 +90,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
-  const staff = user && user.role === "staff" ? { name: user.name, email: user.email, role: user.staffRole ?? "staff" } : null;
+  const staff = useMemo(
+    () => (user && user.role === "staff" ? { name: user.name, email: user.email, role: user.staffRole ?? "staff" } : null),
+    [user]
+  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {

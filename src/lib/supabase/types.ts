@@ -119,6 +119,13 @@ export type Database = {
           billing_city: string | null;
           billing_pincode: string | null;
           billing_phone: string | null;
+          guest_token: string;
+          payment_status: "pending" | "paid" | "failed" | "refunded";
+          razorpay_order_id: string | null;
+          razorpay_payment_id: string | null;
+          courier: string | null;
+          tracking_number: string | null;
+          tracking_url: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["orders"]["Row"]> & { id: string };
         Update: Partial<Database["public"]["Tables"]["orders"]["Row"]>;

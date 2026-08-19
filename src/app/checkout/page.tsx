@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Script from "next/script";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -10,9 +11,14 @@ import { CouponInput } from "@/components/ui/CouponInput";
 import { useCartStore, cartSubtotal } from "@/lib/store/cart-store";
 import { useCouponSession } from "@/lib/use-coupon-session";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { createClient } from "@/lib/supabase/client";
+import { checkoutSchema } from "@/lib/validation";
 import { formatINR } from "@/lib/utils";
-import type { Order } from "@/lib/types";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -20,7 +26,6 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clear);
   const { applied, apply, remove, discount, freeShipping, clearAll } = useCouponSession();
   const user = useAuthStore((s) => s.user);
-  const markOrdered = useAuthStore((s) => s.markOrdered);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +35,11 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  const [razorpayReady, setRazorpayReady] = useState(false);
 
+  // These are a preview for the customer — the real amount that gets
+  // charged is always recomputed server-side in /api/checkout/create-order
+  // from the actual product data, never from these client-side numbers.
   const subtotal = cartSubtotal(lines);
   const shipping = freeShipping || subtotal === 0 ? 0 : subtotal > 999 ? 0 : 99;
   const tax = Math.round((subtotal - discount) * 0.18);
@@ -44,64 +53,95 @@ export default function CheckoutPage() {
 
   async function placeOrder() {
     if (!canPlace) return;
-    setPlacing(true);
-    setPlaceError(null);
 
-    const order: Order = {
-      id: `STR-${Date.now().toString().slice(-8)}`,
-      date: new Date().toISOString(),
-      status: "processing",
-      items: lines,
-      subtotal,
-      discount,
-      shipping,
-      tax,
-      total,
-      couponCode: applied[0]?.code,
-      billingName: name,
-      billingAddress: address,
-      billingCity: city,
-      billingPincode: pincode,
-      billingPhone: phone,
-    };
-
-    const supabase = createClient();
-    const { error } = await supabase.from("orders").insert({
-      id: order.id,
-      user_id: user?.id ?? null,
-      guest_email: user ? null : email,
-      date: order.date,
-      status: order.status,
-      items: order.items,
-      subtotal: order.subtotal,
-      discount: order.discount,
-      shipping: order.shipping,
-      tax: order.tax,
-      total: order.total,
-      coupon_code: order.couponCode ?? null,
-      billing_name: order.billingName ?? null,
-      billing_address: order.billingAddress ?? null,
-      billing_city: order.billingCity ?? null,
-      billing_pincode: order.billingPincode ?? null,
-      billing_phone: order.billingPhone ?? null,
-    });
-
-    if (error) {
-      setPlacing(false);
-      setPlaceError("We couldn't place your order — please try again.");
+    const parsed = checkoutSchema.safeParse({ name, email, address, city, pincode, phone });
+    if (!parsed.success) {
+      setPlaceError(parsed.error.issues[0]?.message ?? "Please check the details you entered.");
+      return;
+    }
+    if (!razorpayReady || !window.Razorpay) {
+      setPlaceError("Payment is still loading — try again in a moment.");
       return;
     }
 
-    if (user) {
-      await markOrdered(user.email);
+    setPlacing(true);
+    setPlaceError(null);
+
+    let created: any;
+    try {
+      const res = await fetch("/api/checkout/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: lines.map((l) => ({
+            productSlug: l.productSlug,
+            quantity: l.quantity,
+            selectedOptions: l.selectedOptions,
+          })),
+          couponCode: applied[0]?.code,
+          shipping: parsed.data,
+        }),
+      });
+      created = await res.json();
+      if (!res.ok) throw new Error(created.error ?? "Couldn't start checkout.");
+    } catch (err: any) {
+      setPlacing(false);
+      setPlaceError(err.message ?? "We couldn't start checkout — please try again.");
+      return;
     }
-    clearCart();
-    clearAll();
-    router.push(`/checkout/confirmation?order=${order.id}&total=${total}`);
+
+    const rzp = new window.Razorpay({
+      key: created.keyId,
+      amount: created.amount,
+      currency: created.currency,
+      order_id: created.razorpayOrderId,
+      name: "Amistrié Print Studio",
+      description: `Order ${created.orderId}`,
+      prefill: { name, email, contact: phone },
+      theme: { color: "#22d3ee" },
+      handler: async (response: any) => {
+        try {
+          const verifyRes = await fetch("/api/checkout/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: created.orderId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          if (!verifyRes.ok) throw new Error();
+        } catch {
+          setPlacing(false);
+          setPlaceError("Payment received but couldn't be confirmed — contact us with your order ID.");
+          return;
+        }
+
+        clearCart();
+        clearAll();
+        const tokenParam = created.guestToken ? `&t=${created.guestToken}` : "";
+        router.push(`/checkout/confirmation?order=${created.orderId}&total=${created.total}${tokenParam}`);
+      },
+      modal: {
+        ondismiss: () => {
+          setPlacing(false);
+          setPlaceError("Payment was cancelled. You can try again whenever you're ready.");
+        },
+      },
+    });
+
+    rzp.on("payment.failed", () => {
+      setPlacing(false);
+      setPlaceError("Payment failed. Please try again or use a different payment method.");
+    });
+
+    rzp.open();
   }
 
   return (
     <>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setRazorpayReady(true)} />
       <Navbar />
       <PageHeader eyebrow="Almost there" title="Checkout" />
       <main className="mx-auto max-w-5xl px-6 py-12 sm:px-12">
@@ -172,11 +212,11 @@ export default function CheckoutPage() {
                 disabled={!canPlace || placing}
                 className="mt-6 w-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-purple py-3 text-xs font-medium uppercase tracking-wider text-studio-void transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {placing ? "Placing Order..." : `Place Order — ${formatINR(total)}`}
+                {placing ? "Processing..." : `Pay — ${formatINR(total)}`}
               </button>
               {placeError && <p className="mt-3 text-center text-xs text-rose-400">{placeError}</p>}
               <p className="mt-3 text-center text-[11px] text-studio-ink/30">
-                Payment processing isn't wired up yet — placing an order here simulates a confirmation.
+                Secured by Razorpay. The amount charged is verified server-side before your order is confirmed.
               </p>
             </div>
           </div>

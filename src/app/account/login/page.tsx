@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { logInSchema } from "@/lib/validation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,12 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    const parsed = logInSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please check the details you entered.");
+      return;
+    }
 
     // One shared Supabase login — staff and customers are both normal
     // accounts, just distinguished by profile role. Route accordingly.
