@@ -22,7 +22,7 @@ const csp = [
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin} wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com`,
   "worker-src 'self' blob:",
-  "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
+  `connect-src 'self' blob: ${supabaseOrigin} wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com https://raw.githack.com https://raw.githubusercontent.com https://unpkg.com`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
