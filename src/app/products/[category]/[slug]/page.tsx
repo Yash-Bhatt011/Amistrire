@@ -22,7 +22,7 @@ export default function ProductDetailPage({
 }: {
   params: Promise<{ category: string; slug: string }>;
 }) {
-  const { slug } = use(params);
+  const { category, slug } = use(params);
   const product = useProduct(slug);
   const record = useRecentlyViewedStore((s) => s.record);
   const wishlisted = useWishlistStore((s) => s.has(product?.slug ?? ""));
@@ -34,15 +34,16 @@ export default function ProductDetailPage({
   const hasVideo = Boolean(product?.media?.videoUrl);
 
   const [view, setView] = useState<ViewMode>(() =>
-    hasModel ? { kind: "model" } : images.length > 0 ? { kind: "image", index: 0 } : { kind: "placeholder" }
+    hasModel ? { kind: "model" } : images.length > 0 ? { kind: "image", index: 0 } : { kind: "model" }
   );
 
   useEffect(() => {
     if (product) record(product.slug);
   }, [product, record]);
 
-  if (!product) notFound();
-
+  if (!product) {
+    return null; // prevents flash before client-side catalog state resolves
+  }
   return (
     <>
       <Navbar />
