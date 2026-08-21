@@ -54,8 +54,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/account/login", request.url));
   }
 
+  // Add CSP header to fix blocked Drei/Three.js texture & model requests
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://raw.githubusercontent.com https://unpkg.com; worker-src 'self' blob:;"
+  );
+
+  // ... rest of your admin redirect logic ...
+
   return response;
 }
+
 
 export const config = {
   matcher: ["/admin/:path*"],
