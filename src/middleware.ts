@@ -5,10 +5,6 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   // CSP updated with raw.githack.com and blob: in connect-src
-  response.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; connect-src 'self' blob: https://.supabase.co wss://.supabase.co https://api.razorpay.com https://raw.githack.com https://raw.githubusercontent.com https://unpkg.com; worker-src 'self' blob:;"
-  );
 
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
