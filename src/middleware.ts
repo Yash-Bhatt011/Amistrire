@@ -4,13 +4,12 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // 1. Full CSP Header to fix unpkg scripts and Drei 3D textures/models
+  // CSP updated with raw.githack.com and blob: in connect-src
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; connect-src 'self' https://.supabase.co wss://.supabase.co https://api.razorpay.com https://raw.githubusercontent.com https://unpkg.com; worker-src 'self' blob:;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; connect-src 'self' blob: https://.supabase.co wss://.supabase.co https://api.razorpay.com https://raw.githack.com https://raw.githubusercontent.com https://unpkg.com; worker-src 'self' blob:;"
   );
 
-  // 2. Admin Route Protection
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
 
@@ -54,7 +53,6 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// 3. Matcher updated to run globally on page requests while skipping static assets
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.\\.(?:svg|png|jpg|jpeg|gif|webp)$).)",
